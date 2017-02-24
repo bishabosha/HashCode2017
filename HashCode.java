@@ -124,10 +124,7 @@ class Cache {
 	}
 	
 	public boolean put(int id, int size) {
-		if (left - size < 0) {
-			return false;
-		}
-		if (videos[id] > 0) {
+		if (left - size < 0 || videos[id] > 0) {
 			return false;
 		} else {
 			left -= size;
