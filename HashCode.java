@@ -191,8 +191,7 @@ class Cache {
 class Endpoint {
 	int latencyDataCentre;
 	
-	List<Tuple> caches = new ArrayList<>();	
-	List<Request> requests = new ArrayList<>();
+	List<Tuple> caches = new ArrayList<>();
 	
 	public Endpoint(Scanner in) {
 		latencyDataCentre = in.nextInt();
