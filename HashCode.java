@@ -3,16 +3,13 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Scanner;
 
 public class HashCode {
 	
 	static int[] videos;
 	static Endpoint[] endpoints;
-	static Request[] requests;
 	static Cache[] caches;
 	static int X;
 	static int V;
@@ -30,7 +27,6 @@ public class HashCode {
 		
 		videos = new int[V];
 		endpoints = new Endpoint[E];
-		requests = new Request[R];
 		caches = new Cache[C];
 		
 		for (int i = 0; i < V; i++) {
@@ -48,14 +44,19 @@ public class HashCode {
 		}
 		
 		for (int i = 0; i < R; i++) {
-			requests[i] = new Request(in.nextInt(), in.nextInt(), in.nextInt());
+			int v = in.nextInt();
+			int e = in.nextInt();
+			int r = in.nextInt();
+			if (videos[v] <= X) {
+				endpoints[e].addRequest(v, r);
+			}
 			in.nextLine();
 		}
 		
 		List<Cache> cacheList = new ArrayList<>();
 		
 		for (int i = 0; i < C; i++) {
-			caches[i].naiveVidAdd();
+			caches[i].vidAdd();
 			if (caches[i].hasVideos()) {
 				cacheList.add(caches[i]);
 			}
@@ -64,11 +65,14 @@ public class HashCode {
 		System.out.println(cacheList.size());
 		for (Cache c: cacheList) {
 			System.out.print(c.id + " ");
+			int count = 0;
 			for (int i = 0; i < c.videos.length; i++) {
 				if (c.videos[i] > 0) {
 					System.out.print(i + " ");
+					count += videos[i];
 				}
 			}
+			System.out.print(count <= X);
 			System.out.println();
 			caches[c.id] = null;
 		}
@@ -95,30 +99,36 @@ class Cache {
 	
 	public void vidAdd() {
 		List<TupleD> priorities = getSortedPriorities();
-		List<Integer> bestSet = new ArrayList<Integer>();
-		int bestPriority = 0;
+		boolean[] bestSet = new boolean[HashCode.V];
+		double bestPriority = 0.0;
 		
 		for(int i=0; i<priorities.size(); i++) {
-			List<Integer> set = new ArrayList<Integer>();
+			boolean[] set = new boolean[HashCode.V];
 			int memory = 0;
-			int priority = 0;
+			double priority = 0.0;
 			
 			for(int j=i+1; j<priorities.size(); j++) {
-				videoId = priorities.get(i).a;
+				int videoId = priorities.get(j).a;
 				
 				if(memory == limit) {
 					break;
 				}
 				else if(memory + HashCode.videos[videoId] <= limit) {
 					memory = memory + HashCode.videos[videoId];
-					priority = priority + priorities.get(i).b;
-					set.add(videoId);
+					priority = priority + priorities.get(j).b;
+					set[videoId] = true;
 				}
 			}
 			
 			if(priority > bestPriority) {
 				bestPriority = priority;
 				bestSet = set;
+			}
+		}
+		
+		for (int i = 0; i < HashCode.V; i++) {
+			if (bestSet[i]) {
+				put(i, HashCode.videos[i]);
 			}
 		}
 	}
@@ -208,11 +218,11 @@ class Endpoint {
 		});
 	}
 	
-	public void addRequest(Request r) {
+	public void addRequest(int v, int r) {
 		double factor = 1.0;
 		for (Tuple pair: caches) {
-			HashCode.caches[pair.a].stage(r.vId, r.requests, pair.b, factor);
-			factor *= (1 - (double)HashCode.videos[r.vId] / (double)HashCode.X);
+			HashCode.caches[pair.a].stage(v, r, pair.b, factor);
+			factor *= (1 - (double)HashCode.videos[v] / (double)HashCode.X);
 		}
 	}
 }
@@ -234,19 +244,5 @@ class TupleD {
 	public TupleD(int a, double b) {
 		this.a = a;
 		this.b = b;
-	}
-}
-
-class Request {
-	int vId;
-	int requests;
-	
-	public Request(int v, int e, int n) {
-		this.vId = v;
-		this.requests = n;
-		
-		if (HashCode.videos[v] <= HashCode.X) {
-			HashCode.endpoints[e].addRequest(this);
-		}
 	}
 }
