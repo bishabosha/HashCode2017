@@ -65,14 +65,11 @@ public class HashCode {
 		System.out.println(cacheList.size());
 		for (Cache c: cacheList) {
 			System.out.print(c.id + " ");
-			int count = 0;
 			for (int i = 0; i < c.videos.length; i++) {
 				if (c.videos[i] > 0) {
 					System.out.print(i + " ");
-					count += videos[i];
 				}
 			}
-			System.out.print(count <= X);
 			System.out.println();
 			caches[c.id] = null;
 		}
