@@ -93,6 +93,36 @@ class Cache {
 		}
 	}
 	
+	public void vidAdd() {
+		List<TupleD> priorities = getSortedPriorities();
+		List<Integer> bestSet = new ArrayList<Integer>();
+		int bestPriority = 0;
+		
+		for(int i=0; i<priorities.size(); i++) {
+			List<Integer> set = new ArrayList<Integer>();
+			int memory = 0;
+			int priority = 0;
+			
+			for(int j=i+1; j<priorities.size(); j++) {
+				videoId = priorities.get(i).a;
+				
+				if(memory == limit) {
+					break;
+				}
+				else if(memory + HashCode.videos[videoId] <= limit) {
+					memory = memory + HashCode.videos[videoId];
+					priority = priority + priorities.get(i).b;
+					set.add(videoId);
+				}
+			}
+			
+			if(priority > bestPriority) {
+				bestPriority = priority;
+				bestSet = set;
+			}
+		}
+	}
+	
 	public List<TupleD> getSortedPriorities() {
 		List<TupleD> priorities = new ArrayList<>();
 		for (int i = 0; i < HashCode.V; i++) {
