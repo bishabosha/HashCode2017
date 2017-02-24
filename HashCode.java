@@ -15,11 +15,12 @@ public class HashCode {
 	static Request[] requests;
 	static Cache[] caches;
 	static int X;
+	static int V;
 	
 	public static void main(String[] args) throws IOException {
 		Scanner in = new Scanner(new FileInputStream(new File(args[0])));
 		
-		int V = in.nextInt();
+		V = in.nextInt();
 		int E = in.nextInt();
 		int R = in.nextInt();
 		int C = in.nextInt();
@@ -38,6 +39,10 @@ public class HashCode {
 		
 		in.nextLine();
 		
+		for (int i = 0; i < C; i++) {
+			caches[i] = new Cache(X, i);
+		}
+		
 		for (int i = 0; i < E; i++) {
 			endpoints[i] = new Endpoint(in);
 		}
@@ -47,33 +52,26 @@ public class HashCode {
 			in.nextLine();
 		}
 		
-		for (int i = 0; i < C; i++) {
-			caches[i] = new Cache(X, i);
-		}
-		
-		for (int i = 0; i < E; i++) {
-			endpoints[i].stageVideos();
-		}
-		
 		List<Cache> cacheList = new ArrayList<>();
 		
 		for (int i = 0; i < C; i++) {
 			caches[i].naiveVidAdd();
-			if (caches[i].vidIdSize.size() > 0) {
+			if (caches[i].hasVideos()) {
 				cacheList.add(caches[i]);
 			}
 		}
 		
-		
 		System.out.println(cacheList.size());
 		for (Cache c: cacheList) {
 			System.out.print(c.id + " ");
-			for (int id: c.vidIdSize.keySet()) {
-				System.out.print(id + " ");
+			for (int i = 0; i < c.videos.length; i++) {
+				if (c.videos[i] > 0) {
+					System.out.print(i + " ");
+				}
 			}
 			System.out.println();
+			caches[c.id] = null;
 		}
-		
 		
 		in.close();
 	}
@@ -83,8 +81,8 @@ class Cache {
 	int limit;
 	int left;
 	int id;
-	public HashMap<Integer, Integer> vidIdSize = new HashMap<>();
-	public HashMap<Integer, Double> staging = new HashMap<>();
+	public double[] staging = new double[HashCode.V];
+	public int[] videos = new int[HashCode.V];
 	
 	public void naiveVidAdd() {
 		List<TupleD> priorities = getSortedPriorities();
@@ -97,8 +95,10 @@ class Cache {
 	
 	public List<TupleD> getSortedPriorities() {
 		List<TupleD> priorities = new ArrayList<>();
-		for (Map.Entry<Integer, Double> entry: staging.entrySet()) {
-			priorities.add(new TupleD(entry.getKey(), entry.getValue()));
+		for (int i = 0; i < HashCode.V; i++) {
+			if (staging[i] > 0) {
+				priorities.add(new TupleD(i, staging[i]));
+			}
 		}
 		priorities.sort(new Comparator<TupleD>() {
 			@Override
@@ -110,31 +110,38 @@ class Cache {
 	}
 	
 	public void stage(int id, int requests, int latency, double factor2) {
-		Double factor = staging.get(id);
-		if (factor == null) {
-			factor = 0.0;
+		double factor = staging[id];
+		staging[id] = factor + ((double)requests/(double)latency) * factor2;
+	}
+	
+	public boolean hasVideos() {
+		for (int i = 0; i < videos.length; i++) {
+			if (videos[i] > 0) {
+				return true;
+			}
 		}
-		staging.put(id, factor + ((double)requests/(double)latency) * factor2);
+		return false;
 	}
 	
 	public boolean put(int id, int size) {
 		if (left - size < 0) {
 			return false;
 		}
-		if (vidIdSize.containsKey(id)) {
+		if (videos[id] > 0) {
 			return false;
 		} else {
 			left -= size;
-			vidIdSize.put(id, size);
+			videos[id] = size;
 			return true;
 		}
 	}
 	
 	public void remove(int id) {
-		Integer mb = vidIdSize.remove(id);
-		if (mb != null) {
-			limit += mb;
+		int mb = videos[id];
+		if (mb > 0) {
+			left += mb;
 		}
+		videos[id] = 0;
 	}
 	
 	public Cache(int limit, int id) {
@@ -160,6 +167,8 @@ class Endpoint {
 			caches.add(new Tuple(in.nextInt(), in.nextInt()));
 			in.nextLine();
 		}
+		
+		sortCaches();
 	}
 	
 	public void sortCaches() {
@@ -172,19 +181,16 @@ class Endpoint {
 		});
 	}
 	
-	public void stageVideos() {
-		sortCaches();
-		for (Request r: requests) {
-			double factor = 1.0;
-			for (Tuple pair: caches) {
-				HashCode.caches[pair.a].stage(r.vId, r.requests, pair.b, factor);
-				factor *= (1 - (double)HashCode.videos[r.vId] / (double)HashCode.X);
-			}
+	public void addRequest(Request r) {
+		double factor = 1.0;
+		for (Tuple pair: caches) {
+			HashCode.caches[pair.a].stage(r.vId, r.requests, pair.b, factor);
+			factor *= (1 - (double)HashCode.videos[r.vId] / (double)HashCode.X);
 		}
 	}
 }
 
-class Tuple{
+class Tuple {
 	int a;
 	int b;
 	
@@ -194,7 +200,7 @@ class Tuple{
 	}
 }
 
-class TupleD{
+class TupleD {
 	int a;
 	double b;
 	
@@ -213,7 +219,7 @@ class Request {
 		this.requests = n;
 		
 		if (HashCode.videos[v] <= HashCode.X) {
-			HashCode.endpoints[e].requests.add(this);
+			HashCode.endpoints[e].addRequest(this);
 		}
 	}
 }
