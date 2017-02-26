@@ -1,3 +1,7 @@
+/**
+ * Copyright (2017) James Thompson, Brandon Hewer
+ */
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -6,7 +10,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Scanner;
 
-public class HashCode {
+public class CacheAllocator {
 	
 	static int[] videos;
 	static Endpoint[] endpoints;
@@ -82,13 +86,13 @@ class Cache {
 	int limit;
 	int left;
 	int id;
-	public double[] staging = new double[HashCode.V];
-	public int[] videos = new int[HashCode.V];
+	public double[] staging = new double[CacheAllocator.V];
+	public int[] videos = new int[CacheAllocator.V];
 	
 	public void naiveVidAdd() {
 		List<TupleD> priorities = getSortedPriorities();
 		for (TupleD tup: priorities) {
-			if (!put(tup.a, HashCode.videos[tup.a])) {
+			if (!put(tup.a, CacheAllocator.videos[tup.a])) {
 				return;
 			}
 		}
@@ -96,22 +100,22 @@ class Cache {
 	
 	public void vidAdd() {
 		List<TupleD> priorities = getSortedPriorities();
-		boolean[] bestSet = new boolean[HashCode.V];
+		boolean[] bestSet = new boolean[CacheAllocator.V];
 		double bestPriority = 0.0;
 		
 		for(int i=0; i<priorities.size(); i++) {
-			boolean[] set = new boolean[HashCode.V];
+			boolean[] set = new boolean[CacheAllocator.V];
 			int memory = 0;
 			double priority = 0.0;
 			
-			for(int j=i+1; j<priorities.size(); j++) {
+			for(int j=i; j<priorities.size(); j++) {
 				int videoId = priorities.get(j).a;
 				
 				if(memory == limit) {
 					break;
 				}
-				else if(memory + HashCode.videos[videoId] <= limit) {
-					memory = memory + HashCode.videos[videoId];
+				else if(memory + CacheAllocator.videos[videoId] <= limit) {
+					memory = memory + CacheAllocator.videos[videoId];
 					priority = priority + priorities.get(j).b;
 					set[videoId] = true;
 				}
@@ -123,16 +127,16 @@ class Cache {
 			}
 		}
 		
-		for (int i = 0; i < HashCode.V; i++) {
+		for (int i = 0; i < CacheAllocator.V; i++) {
 			if (bestSet[i]) {
-				put(i, HashCode.videos[i]);
+				put(i, CacheAllocator.videos[i]);
 			}
 		}
 	}
 	
 	public List<TupleD> getSortedPriorities() {
 		List<TupleD> priorities = new ArrayList<>();
-		for (int i = 0; i < HashCode.V; i++) {
+		for (int i = 0; i < CacheAllocator.V; i++) {
 			if (staging[i] > 0) {
 				priorities.add(new TupleD(i, staging[i]));
 			}
@@ -146,9 +150,9 @@ class Cache {
 		return priorities;
 	}
 	
-	public void stage(int id, int requests, int latency, double factor2) {
-		double factor = staging[id];
-		staging[id] = factor + ((double)requests/(double)latency) * factor2;
+	public void stage(int id, int requests, int latency, double factor) {
+		double priority = staging[id];
+		staging[id] = priority + ((double)requests/(double)latency) * factor;
 	}
 	
 	public boolean hasVideos() {
@@ -217,9 +221,13 @@ class Endpoint {
 	public void addRequest(int v, int r) {
 		double factor = 1.0;
 		for (Tuple pair: caches) {
-			HashCode.caches[pair.a].stage(v, r, pair.b, factor);
-			factor *= (1 - (double)HashCode.videos[v] / (double)HashCode.X);
+			CacheAllocator.caches[pair.a].stage(v, r, pair.b, factor);
+			factor *= getProbablilty(v, pair.b);
 		}
+	}
+	
+	public double getProbablilty(int v, double latency) {
+		return 1.0 - CacheAllocator.videos[v] / (double)(CacheAllocator.X + latency);
 	}
 }
 
