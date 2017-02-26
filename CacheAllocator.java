@@ -59,8 +59,7 @@ public class CacheAllocator {
 		List<Cache> cacheList = new ArrayList<>();
 		
 		for (int i = 0; i < numCaches; i++) {
-			caches[i].vidAdd();
-			if (caches[i].hasVideos()) {
+			if (caches[i].vidAdd()) {
 				cacheList.add(caches[i]);
 			}
 		}
@@ -93,16 +92,7 @@ class Cache {
 		staging = new double[CacheAllocator.numVideos];
 	}
 	
-	public void naiveVidAdd() {
-		List<TupleD> priorities = getSortedPriorities();
-		for (TupleD tup: priorities) {
-			if (!add(tup.a)) {
-				return;
-			}
-		}
-	}
-	
-	public void vidAdd() {
+	public boolean vidAdd() {
 		List<TupleD> priorities = getSortedPriorities();
 		boolean[] bestSet       = new boolean[CacheAllocator.numVideos];
 		double bestPriority     = 0.0;
@@ -130,11 +120,19 @@ class Cache {
 			}
 		}
 		
+		resetVideos();
+		boolean result = false;
 		for (int i = 0; i < bestSet.length; i++) {
 			if (bestSet[i]) {
-				add(i);
+				if (add(i)) {					
+					result = true;
+				} else {
+					break;
+				}
 			}
 		}
+		
+		return result;
 	}
 	
 	public List<TupleD> getSortedPriorities() {
@@ -153,18 +151,9 @@ class Cache {
 		staging[id] += ((double)requests/(double)latency) * factor;
 	}
 	
-	public boolean hasVideos() {
-		for (int i = 0; i < videos.length; i++) {
-			if (videos[i] > 0) {
-				return true;
-			}
-		}
-		return false;
-	}
-	
 	public boolean add(int id) {
 		final int size = CacheAllocator.videos[id];
-		if (freeCapacity - size <= 0 || videos[id] > 0) {
+		if (freeCapacity - size < 0) {
 			return false;
 		} else {
 			freeCapacity -= size;
