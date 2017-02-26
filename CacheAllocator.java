@@ -6,7 +6,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Scanner;
 
@@ -15,51 +14,51 @@ public class CacheAllocator {
 	static int[] videos;
 	static Endpoint[] endpoints;
 	static Cache[] caches;
-	static int X;
-	static int V;
+	static int cacheLimit;
+	static int numVideos;
 	
 	public static void main(String[] args) throws IOException {
 		Scanner in = new Scanner(new FileInputStream(new File(args[0])));
 		
-		V = in.nextInt();
-		int E = in.nextInt();
-		int R = in.nextInt();
-		int C = in.nextInt();
-		X = in.nextInt();
+		numVideos = in.nextInt();
+		int numEndpoints = in.nextInt();
+		int numRequests = in.nextInt();
+		int numCaches = in.nextInt();
+		cacheLimit = in.nextInt();
 		
 		in.nextLine();
 		
-		videos = new int[V];
-		endpoints = new Endpoint[E];
-		caches = new Cache[C];
+		videos = new int[numVideos];
+		endpoints = new Endpoint[numEndpoints];
+		caches = new Cache[numCaches];
 		
-		for (int i = 0; i < V; i++) {
+		for (int i = 0; i < numVideos; i++) {
 			videos[i] = in.nextInt();
 		}
 		
 		in.nextLine();
 		
-		for (int i = 0; i < C; i++) {
-			caches[i] = new Cache(X, i);
+		for (int i = 0; i < numCaches; i++) {
+			caches[i] = new Cache(i);
 		}
 		
-		for (int i = 0; i < E; i++) {
+		for (int i = 0; i < numEndpoints; i++) {
 			endpoints[i] = new Endpoint(in);
 		}
 		
-		for (int i = 0; i < R; i++) {
-			int v = in.nextInt();
-			int e = in.nextInt();
-			int r = in.nextInt();
-			if (videos[v] <= X) {
-				endpoints[e].addRequest(v, r);
+		for (int i = 0; i < numRequests; i++) {
+			int videoId = in.nextInt();
+			int endpointId = in.nextInt();
+			int videoRequests = in.nextInt();
+			if (videos[videoId] <= cacheLimit) {
+				endpoints[endpointId].addRequest(videoId, videoRequests);
 			}
 			in.nextLine();
 		}
 		
 		List<Cache> cacheList = new ArrayList<>();
 		
-		for (int i = 0; i < C; i++) {
+		for (int i = 0; i < numCaches; i++) {
 			caches[i].vidAdd();
 			if (caches[i].hasVideos()) {
 				cacheList.add(caches[i]);
@@ -83,16 +82,21 @@ public class CacheAllocator {
 }
 
 class Cache {
-	int limit;
-	int left;
 	int id;
-	public double[] staging = new double[CacheAllocator.V];
-	public int[] videos = new int[CacheAllocator.V];
+	int freeCapacity;
+	public double[] staging;
+	public int[] videos;
+	
+	public Cache(int id) {
+		this.id = id;
+		resetVideos();
+		staging = new double[CacheAllocator.numVideos];
+	}
 	
 	public void naiveVidAdd() {
 		List<TupleD> priorities = getSortedPriorities();
 		for (TupleD tup: priorities) {
-			if (!put(tup.a, CacheAllocator.videos[tup.a])) {
+			if (!add(tup.a)) {
 				return;
 			}
 		}
@@ -100,59 +104,53 @@ class Cache {
 	
 	public void vidAdd() {
 		List<TupleD> priorities = getSortedPriorities();
-		boolean[] bestSet = new boolean[CacheAllocator.V];
+		boolean[] bestSet = new boolean[CacheAllocator.numVideos];
 		double bestPriority = 0.0;
+		boolean[] set = new boolean[CacheAllocator.numVideos];
+		double priorityTotal = 0.0;
 		
-		for(int i=0; i<priorities.size(); i++) {
-			boolean[] set = new boolean[CacheAllocator.V];
-			int memory = 0;
-			double priority = 0.0;
+		for(int i = 0; i < priorities.size(); i++) {
+			resetVideos();
+			set = new boolean[CacheAllocator.numVideos];
+			priorityTotal = 0.0;
 			
-			for(int j=i; j<priorities.size(); j++) {
-				int videoId = priorities.get(j).a;
-				
-				if(memory == limit) {
+			for(int j = i; j < priorities.size(); j++) {
+				TupleD priority = priorities.get(j);
+				if (freeCapacity == 0) {
 					break;
-				}
-				else if(memory + CacheAllocator.videos[videoId] <= limit) {
-					memory = memory + CacheAllocator.videos[videoId];
-					priority = priority + priorities.get(j).b;
-					set[videoId] = true;
+				} else if (add(priority.a)) {
+					priorityTotal += priority.b;
+					set[priority.a] = true;
 				}
 			}
 			
-			if(priority > bestPriority) {
-				bestPriority = priority;
+			if(priorityTotal > bestPriority) {
+				bestPriority = priorityTotal;
 				bestSet = set;
 			}
 		}
 		
-		for (int i = 0; i < CacheAllocator.V; i++) {
+		for (int i = 0; i < bestSet.length; i++) {
 			if (bestSet[i]) {
-				put(i, CacheAllocator.videos[i]);
+				add(i);
 			}
 		}
 	}
 	
 	public List<TupleD> getSortedPriorities() {
 		List<TupleD> priorities = new ArrayList<>();
-		for (int i = 0; i < CacheAllocator.V; i++) {
-			if (staging[i] > 0) {
-				priorities.add(new TupleD(i, staging[i]));
+		for (int i = 0; i < CacheAllocator.numVideos; i++) {
+			final double priority = staging[i];
+			if (priority > 0) {
+				priorities.add(new TupleD(i, priority));
 			}
 		}
-		priorities.sort(new Comparator<TupleD>() {
-			@Override
-			public int compare(TupleD arg0, TupleD arg1) {
-				return Double.compare(arg1.b, arg0.b);
-			}
-		});
+		priorities.sort((x, y) -> Double.compare(y.b, x.b));
 		return priorities;
 	}
 	
 	public void stage(int id, int requests, int latency, double factor) {
-		double priority = staging[id];
-		staging[id] = priority + ((double)requests/(double)latency) * factor;
+		staging[id] += ((double)requests/(double)latency) * factor;
 	}
 	
 	public boolean hasVideos() {
@@ -164,28 +162,20 @@ class Cache {
 		return false;
 	}
 	
-	public boolean put(int id, int size) {
-		if (left - size < 0 || videos[id] > 0) {
+	public boolean add(int id) {
+		final int size = CacheAllocator.videos[id];
+		if (freeCapacity - size <= 0 || videos[id] > 0) {
 			return false;
 		} else {
-			left -= size;
+			freeCapacity -= size;
 			videos[id] = size;
 			return true;
 		}
 	}
 	
-	public void remove(int id) {
-		int mb = videos[id];
-		if (mb > 0) {
-			left += mb;
-		}
-		videos[id] = 0;
-	}
-	
-	public Cache(int limit, int id) {
-		this.limit = limit;
-		this.left = limit;
-		this.id = id;
+	private void resetVideos() {
+		freeCapacity = CacheAllocator.cacheLimit;
+		videos = new int[CacheAllocator.numVideos];
 	}
 }
 
@@ -196,26 +186,16 @@ class Endpoint {
 	
 	public Endpoint(Scanner in) {
 		latencyDataCentre = in.nextInt();
-		int K = in.nextInt();
+		int numCacheConnections = in.nextInt();
 		
 		in.nextLine();
 		
-		for (int i = 0; i < K; i++) {
+		for (int i = 0; i < numCacheConnections; i++) {
 			caches.add(new Tuple(in.nextInt(), in.nextInt()));
 			in.nextLine();
 		}
 		
-		sortCaches();
-	}
-	
-	public void sortCaches() {
-		caches.sort(new Comparator<Tuple>() {
-
-			@Override
-			public int compare(Tuple arg0, Tuple arg1) {
-				return Integer.compare(arg0.b, arg1.b);
-			}
-		});
+		caches.sort((x, y) -> Integer.compare(x.b, y.b));
 	}
 	
 	public void addRequest(int v, int r) {
@@ -227,7 +207,7 @@ class Endpoint {
 	}
 	
 	public double getProbablilty(int v, double latency) {
-		return 1.0 - CacheAllocator.videos[v] / (double)(CacheAllocator.X + latency);
+		return 1.0 - CacheAllocator.videos[v] / (double)(CacheAllocator.cacheLimit + latency);
 	}
 }
 
