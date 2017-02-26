@@ -20,17 +20,17 @@ public class CacheAllocator {
 	public static void main(String[] args) throws IOException {
 		Scanner in = new Scanner(new FileInputStream(new File(args[0])));
 		
-		numVideos = in.nextInt();
+		numVideos        = in.nextInt();
 		int numEndpoints = in.nextInt();
-		int numRequests = in.nextInt();
-		int numCaches = in.nextInt();
-		cacheLimit = in.nextInt();
+		int numRequests  = in.nextInt();
+		int numCaches    = in.nextInt();
+		cacheLimit       = in.nextInt();
 		
 		in.nextLine();
 		
-		videos = new int[numVideos];
+		videos    = new int[numVideos];
 		endpoints = new Endpoint[numEndpoints];
-		caches = new Cache[numCaches];
+		caches    = new Cache[numCaches];
 		
 		for (int i = 0; i < numVideos; i++) {
 			videos[i] = in.nextInt();
@@ -47,8 +47,8 @@ public class CacheAllocator {
 		}
 		
 		for (int i = 0; i < numRequests; i++) {
-			int videoId = in.nextInt();
-			int endpointId = in.nextInt();
+			int videoId       = in.nextInt();
+			int endpointId    = in.nextInt();
 			int videoRequests = in.nextInt();
 			if (videos[videoId] <= cacheLimit) {
 				endpoints[endpointId].addRequest(videoId, videoRequests);
@@ -104,10 +104,10 @@ class Cache {
 	
 	public void vidAdd() {
 		List<TupleD> priorities = getSortedPriorities();
-		boolean[] bestSet = new boolean[CacheAllocator.numVideos];
-		double bestPriority = 0.0;
-		boolean[] set = new boolean[CacheAllocator.numVideos];
-		double priorityTotal = 0.0;
+		boolean[] bestSet       = new boolean[CacheAllocator.numVideos];
+		double bestPriority     = 0.0;
+		boolean[] set           = new boolean[CacheAllocator.numVideos];
+		double priorityTotal    = 0.0;
 		
 		for(int i = 0; i < priorities.size(); i++) {
 			resetVideos();
