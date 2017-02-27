@@ -147,8 +147,8 @@ class Cache {
 		return priorities;
 	}
 	
-	public void stage(int id, int requests, int latency, double factor) {
-		staging[id] += ((double)requests/(double)latency) * factor;
+	public void stage(int videoId, int requests, int latency, double factor) {
+		staging[videoId] += ((double)requests/(double)latency) * factor;
 	}
 	
 	public boolean add(int id) {
@@ -187,16 +187,16 @@ class Endpoint {
 		caches.sort((x, y) -> Integer.compare(x.b, y.b));
 	}
 	
-	public void addRequest(int v, int r) {
+	public void addRequest(int videoId, int requests) {
 		double factor = 1.0;
-		for (Tuple pair: caches) {
-			CacheAllocator.caches[pair.a].stage(v, r, pair.b, factor);
-			factor *= getProbablilty(v, pair.b);
+		for (Tuple cacheConn: caches) {
+			CacheAllocator.caches[cacheConn.a].stage(videoId, requests, cacheConn.b, factor);
+			factor *= getProbablilty(videoId, cacheConn.b);
 		}
 	}
 	
-	public double getProbablilty(int v, double latency) {
-		return 1.0 - CacheAllocator.videos[v] / (double)(CacheAllocator.cacheLimit + latency);
+	public double getProbablilty(int videoId, double latency) {
+		return 1.0 - CacheAllocator.videos[videoId] / (double)(CacheAllocator.cacheLimit + latency);
 	}
 }
 
